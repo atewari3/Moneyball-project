@@ -1,0 +1,209 @@
+---
+title: "💸MoneyBall Project💸"
+author: Aditya Tewari
+
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+$$\\[0.01in]$$
+
+##### Have you watched MoneyBall? Perhaps, you have read the book. The story is amazing. The 2002 Oakland A's lost 3 key players during the off season, but luckily the manager was able to replace those players while still maintain stats and on a low budget. How? Well thank to data science and statistics! This project takes a data set from the [Sean Lahaman's Website](http://www.seanlahman.com/baseball-archive/statistics/) during that time to show how finding replacement player could have been done by using R. This project involves cleaning,filtering,data visualization, and forming a data product at the end.
+
+##### Step 1 is to call all the key libraries ,data, and set check it out a bit
+
+```{r}
+library(tidyverse)
+batting <- read.csv("/Users/aditewari/Desktop/R-Course/R-for-Data-Science-and-Machine-Learning/Training Exercises/Capstone and Data Viz Projects/Capstone Project/Batting.csv")
+head(batting)
+```
+
+#### Now lets look at the structure of the Data frame
+
+```{r}
+str(batting)
+```
+
+#### Lets looks at the columns that will mean a lot more for us speciifically the At bats column and the 2 bases column
+```{r}
+head(batting$AB)
+head(batting$X2B)
+```
+
+### Lets do some feature engineering
+#### We need to add some columns based on some important statistics that are important for evaluating players. We should add Batting Average,On Base Percentage, Slugging Percentage
+$$\\[0.01in]$$
+
+#### Batting average
+#### $AVG = H/AB$
+```{r}
+batting$BA <- batting$H/batting$AB
+tail(batting$BA)
+```
+$$\\[0.01in]$$
+
+#### On Base percenatge
+#### $OBP = (H+BB+HBP)/(AB+BB+HBP+SF)$
+```{r}
+attach(batting) #This way we don't have to keep on saying batting
+batting$OBP = (H+BB+HBP)/(AB+BB+HBP+SF)
+tail(batting$OBP)
+```
+$$\\[0.01in]$$
+
+#### Slugging Percenatge
+#### $SLG = (1B + 2B*2 + 3B*3 + HR*4)/AB$
+##### We don't have a first bases column but we can make one by subtracting 3rd, 2nd, and homeruns from total hits.
+```{r,message=FALSE}
+attach(batting) #This way we don't have to keep on saying batting
+batting$X1B <- (H-X2B-X3B-HR)
+tail(batting$AB)
+```
+
+```{r,message=FALSE}
+attach(batting)
+batting$SLG <- (X1B + X2B*2 + X3B*3 + HR*4)/AB
+tail(batting$SLG)
+```
+
+#### We got all our data on the players except for the Salary. We want to get the best bang for our buck so lets try to find the best players for the best price. For this we gotta merge thet salary dataframe with our current data frame
+```{r}
+sal <- read.csv("/Users/aditewari/Desktop/R-Course/R-for-Data-Science-and-Machine-Learning/Training Exercises/Capstone and Data Viz Projects/Capstone Project/Salaries.csv")
+
+head(sal)
+```
+
+#### Our batting data goes back all the way to 1871 but our salary data only starts at 1985 so letes filter the batting data to only start from 1985 onwards
+```{r}
+batting <- filter(batting,yearID >= 1985)
+summary(batting)
+```
+
+#### Now we will merge both the data frames together. They both have yearID and playerID and we don't want to have duplicates so we will mention that in our function
+```{r}
+combo <- merge(batting,sal, by=c("yearID","playerID"))
+summary(combo)
+```
+$$\\[0.01in]$$
+
+#### Now lets look at the stats of the players the the Oakland A's baseball team lost in the offseason to first understand what we have to try to replace. The three lost players were: first baseman 2000 AL MVP Jason Giambi (giambja01) to the Yankees, outfielder Johnny Damon (damonjo01) to the Red Sox and infielder Rainer Gustavo Olmedo ('saenzol01').
+
+#### However, we only need to get data on the player from 2001 specifically rather than all the years
+```{r}
+lost_players <- combo %>% filter(playerID %in% c("giambja01","damonjo01","saenzol01")) %>% filter(yearID==2001)
+
+lost_players
+```
+$$\\[0.01in]$$
+
+#### Ok so now we have all the data about our `lost_players` but we only need `playerID,H,X2B,X3B,HR,OBP,SLG,BA,AB` so lets further clean our data
+```{r}
+lost_players <- select(lost_players,c("playerID","H","X2B","X3B","HR","OBP","SLG","BA","AB"))
+
+lost_players
+```
+$$\\[0.01in]$$
+
+#### Okay so we have all the info we need about the lost players. All we have to do know is find replacements for them. Lets try to keep out total budget 15 million dollars. Lets also try to make sure that the replacement players have a combined At Bats greater than the lost players and lets also try to have the On Base Percentage as a mean of 3 players higher than that of the mean OBP of the Lost players
+$$\\[0.01in]$$
+
+#### The lost players combined At Bats
+```{r}
+lp_AB <- sum(lost_players$AB)
+lp_AB
+lp_meanAB <- (lp_AB/length(lost_players$playerID)) #This is the mean of the AB
+lp_meanAB
+```
+$$\\[0.01in]$$
+
+#### Mean OBP of the lost players
+```{r}
+lp_meanOBP <-mean(lost_players$OBP)
+lp_meanOBP
+```
+$$\\[0.01in]$$
+
+#### Now lets find some key players from 2001 that could potentially replace the lost_players. We will use 3 filters for this: year has to be 2001, the OBP and AB of any given player must be more than the mean OBP and AB of the lost players
+
+```{r}
+potential <- combo %>% filter(yearID==2001) %>% filter(OBP>lp_meanOBP) %>% filter(AB>lp_meanAB)
+head(potential)
+```
+$$\\[0.01in]$$
+
+#### We have a lot of potential prospects that could fit both all our requirements. the display above is only the first 6 rows of the potential dataframe I created for the players.However, we want the best bang for our buck. so lets do some data analysis via visualization
+$$\\[0.01in]$$
+
+```{r}
+library(plotly)
+
+```
+
+
+### Data Analysis and Visulaization
+```{r}
+pl1 <- ggplot(potential) + aes(x=AB,y=OBP)
+pl2 <- pl1 + geom_point(aes(color=salary))
+pl3 <- pl2 +  scale_colour_gradient(low = "blue", high = "red")
+ggplotly(pl3)
+```
+$$\\[0.01in]$$
+
+#### Lets now remove any outliers and further filter so that no player's salary is more than 5 million dollars considering we need 3 players and our budget is 15 million
+
+```{r}
+potential <- potential %>% filter(OBP<0.445,AB<650,salary<5000000)
+
+pl1 <- ggplot(potential) + aes(x=AB,y=OBP)
+pl2 <- pl1 + geom_point(aes(color=salary))
+pl3 <- pl2 +  scale_colour_gradient(low = "blue", high = "red")
+ggplotly(pl3)
+```
+$$\\[0.01in]$$
+
+#### Lets choose the 3 players now, but first lets simplify the data by only keeping the columns we seriously need and by putting the value in descending order in accordance with AB
+```{r}
+potential <- potential %>% arrange(desc(AB)) %>% select(c("playerID","AB","OBP","salary"))
+replacement <- potential[1:3,]
+```
+$$\\[0.01in]$$
+
+#### We found our 3 players for replacement
+```{r,echo=FALSE}
+replacement
+```
+
+### Lets compare the lost players and replacements graphically
+```{r}
+lost_players <- lost_players %>% select(c("playerID","AB","OBP"))
+
+replacement <- replacement %>% select(c("playerID","AB","OBP"))
+
+compare <- rbind(lost_players,replacement)
+
+new_player <- function(players){
+  for (i in players) {
+    if (i %in% replacement$playerID) {
+      return(TRUE)
+    }else{
+      return(FALSE)
+    }
+  }
+}
+
+compare$new_player <- sapply(compare$playerID,new_player)
+```
+#### The function up above was simply to make a new column which identified if the payer was a new/replacement player or not
+
+```{r}
+pl1 <- ggplot(compare) + aes(x=AB,y=OBP)
+pl2 <- pl1 + geom_point(aes(color=new_player)) 
+pl3 <- pl2 + facet_grid(AB~round(OBP,2))
+
+ggplotly(pl3)
+```
+
+#### We see that except for the one red dot that represents a lost_player. The new players have a higher AB(x-axis) and a higher OBP(y-axis)
+
